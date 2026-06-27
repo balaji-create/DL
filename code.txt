@@ -1,0 +1,502 @@
+# 1. Write a program to implement XOR function using multilayer neuron layer
+
+import tensorflow as tf
+import numpy as np
+
+X = np.array([[0,0], [0,1], [1,0], [1,1]])
+y = np.array([[0], [1], [1], [0]])
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(2, activation='tanh', input_shape=(2,)),
+    tf.keras.layers.Dense(1, activation='sigmoid')
+])
+
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+model.fit(X, y, epochs=200, verbose=0, batch_size=4)
+
+loss, accuracy = model.evaluate(X, y)
+
+predictions = (model.predict(X) > 0.5).astype(int)
+
+print("Loss: ", loss)
+print("Accuracy: ", accuracy)
+print("Predictions: ", predictions)
+############################################################################################################
+# 2. Experiment different hyperparameter and activation functions to find an optimal solution in the implementation of a classifier model for a given dataset
+
+import tensorflow as tf
+from keras.utils import to_categorical
+from keras.datasets.cifar10 import load_data
+import numpy as np
+
+(X_train, y_train), (X_test, y_test) = load_data()
+
+X_train, X_test = X_train / 255.0, X_test / 255.0
+
+def build_model(activation='relu', optimizer='adam'):
+  model = tf.keras.models.Sequential([
+      tf.keras.layers.Flatten(input_shape=(32,32,3)),
+      tf.keras.layers.Dense(512, activation=activation),
+      tf.keras.layers.Dense(256, activation=activation),
+      tf.keras.layers.Dense(10, activation='softmax'),
+  ])
+
+  model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+  return model
+
+activation_functions = ['relu', 'sigmoid', 'tanh']
+optimizers = ['adam', 'sgd']
+
+results = {}
+
+for activation in activation_functions:
+  for optimizer in optimizers:
+    model = build_model(activation, optimizer)
+    model.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test))
+    loss, acc = model.evaluate(X_test, y_test)
+    results[(activation, optimizer)] = (acc, loss)
+
+for (act, opt), (acc, loss) in results.items():
+  print(f"{act}\t{opt}\t\t{acc}\t{loss}")
+###########################################################################################################
+# 3. Design a convolutional neural network to classify handwritten digits
+import tensorflow as tf
+from keras.datasets.mnist import load_data
+import matplotlib.pyplot as plt
+
+(X_train, y_train), (X_test, y_test) = load_data()
+
+X_train = X_train.reshape(-1, 28,28,1).astype('float32') / 255.0
+X_test = X_test.reshape(-1,28,28,1).astype('float32') / 255.0
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Conv2D(32, (3,3), activation='relu', input_shape=(28,28,1)),
+    tf.keras.layers.MaxPooling2D((2,2)),
+    tf.keras.layers.Conv2D(64, (3,3), activation='relu'),
+    tf.keras.layers.MaxPool2D((2,2)),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(128, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
+history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_test, y_test))
+
+test_loss, test_acc = model.evaluate(X_test, y_test)
+print('Test accuracy:', test_acc)
+print('Test loss: ',test_loss)
+###############################################################################################################
+# 4. Write a program to demonstrate the working of 1D CNN
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
+
+url = 'https://raw.githubusercontent.com/josumsc/daily-climate-ts/refs/heads/master/data/DailyDelhiClimateTest.csv'
+
+df = pd.read_csv(url)
+
+df['date'] = pd.to_datetime(df['date'])
+
+data = df[['meantemp', 'humidity', 'wind_speed', 'meanpressure']].values
+
+scaler = MinMaxScaler()
+data = scaler.fit_transform(data)
+
+def create_multivariate_sequences(data, window_size):
+  X, y = [], []
+  for i in range(len(data) - window_size):
+    X.append(data[i:i+window_size])
+    y.append(data[i+window_size][0])
+  return np.array(X), np.array(y)
+
+window_size = 7
+X, y = create_multivariate_sequences(data, window_size)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+
+model = tf.keras.models.Sequential([
+    tf.keras.layers.Conv1D(64, 2, activation='relu', input_shape=(X.shape[1], X.shape[2])),
+    tf.keras.layers.MaxPooling1D(2),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(1)
+])
+
+model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+
+history = model.fit(X_train, y_train, epochs=20, batch_size=32, validation_data=(X_test, y_test))
+
+test_loss, test_mae = model.evaluate(X_test, y_test)
+
+print(f"Loss: {test_loss}")
+print(f"MAE: {test_mae}")
+##################################################################################################################
+# 5. write a program to visualize the feature map for the given image using any pretrained CNN model
+
+from keras.applications.vgg16 import VGG16, preprocess_input
+from keras.preprocessing.image import load_img, img_to_array
+from keras.models import Model
+from numpy import sqrt
+from matplotlib import pyplot
+
+model = VGG16()
+
+ixs = [2, 5, 9, 13, 17]
+output = [model.layers[i].output for i in ixs]
+model = Model(inputs=model.inputs, outputs=output)
+
+img = load_img('bird (1).jpg', target_size=(224, 224))
+print(f"Total number of layers in model: {len(model.layers)}")
+
+img = img_to_array(img)
+img = img.reshape(1, 224, 224, 3)
+print(img.shape)
+img = preprocess_input(img)
+
+feature_maps = model.predict(img)
+square=8
+
+for fmap in feature_maps:
+  n_features = fmap.shape[-1]
+  square = 8
+  ix = 1
+
+  for i in range(min(square*square, n_features)):
+    ax = pyplot.subplot(square, square, ix)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    pyplot.imshow(fmap[0, :, :, i], cmap='gray')
+    ix += 1
+
+  pyplot.show()
+##########################################################################################################
+# 6. train 2 identical neural networks on a suitable dataset. one with batch norm and one without. compare performance, accuracy and loss
+
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import layers, models
+import matplotlib.pyplot as plt
+
+# Load & normalize MNIST
+(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+x_train, x_test = x_train / 255.0, x_test / 255.0
+
+def build_model(use_bn=False):
+    model = models.Sequential()
+    model.add(layers.Flatten(input_shape=(28, 28)))
+
+    for units in [256, 128]:
+        model.add(layers.Dense(units))
+        if use_bn:
+            model.add(layers.BatchNormalization())
+        model.add(layers.Activation('relu'))
+
+    model.add(layers.Dense(10, activation='softmax'))
+    model.compile(optimizer='adam',
+                  loss='sparse_categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model
+
+model_no_bn = build_model(use_bn=False)
+model_bn = build_model(use_bn=True)
+
+history_no_bn = model_no_bn.fit(x_train, y_train, epochs=10,
+                                validation_data=(x_test, y_test))
+history_bn = model_bn.fit(x_train, y_train, epochs=10,
+                          validation_data=(x_test, y_test))
+
+# Plot comparison
+plt.figure(figsize=(12,4))
+plt.subplot(1,2,1)
+plt.plot(history_bn.history['accuracy'], label='BN acc')
+plt.plot(history_bn.history['loss'], label='BN loss')
+plt.title('With BatchNorm')
+plt.legend()
+
+plt.subplot(1,2,2)
+plt.plot(history_no_bn.history['accuracy'], label='No BN acc')
+plt.plot(history_no_bn.history['loss'], label='No BN loss')
+plt.title('Without BatchNorm')
+plt.legend()
+plt.show()
+#######################################################################################################
+# 8. Develop a python program for language modelling using RNN
+
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import layers, models, datasets
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+(x_train, _), (x_test, _) = datasets.reuters.load_data(num_words=5000)
+
+X, y = [], []
+for seq in x_train:
+    for i in range(1, len(seq)):
+        X.append(seq[:i])
+        y.append(seq[i])
+
+X = pad_sequences(X, maxlen=50)
+y = np.array(y)
+
+model = models.Sequential([
+    layers.Embedding(5000, 32, input_length=50),
+    layers.SimpleRNN(32),
+    layers.Dense(5000, activation='softmax')
+])
+
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+model.fit(X, y, epochs=3, batch_size=128)
+
+sample = X[0].reshape(1, 50)
+
+prediction = model.predict(sample, verbose=0)
+
+pred_id = np.argmax(prediction)
+
+word_index = datasets.reuters.get_word_index()
+reverse_word_index = {v+3: k for k, v in word_index.items()}
+reverse_word_index[0] = "<PAD>"
+reverse_word_index[1] = "<START>"
+reverse_word_index[2] = "<UNK>"
+reverse_word_index[3] = "<UNUSED>"
+
+print("Predicted word ID:", pred_id)
+
+predicted_word = reverse_word_index.get(pred_id, "<UNKNOWN>")
+print("Predicted word:", predicted_word)
+###############################################################################################
+# 9. Develop a LSTM-based model for an open-source dataset. Describe the architecture of LSTM model, including the number of LSTM layers, embedding dimensions. Also handle the sequence length variability in input texts.
+
+import tensorflow as tf
+from tensorflow.keras.datasets import imdb
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense
+
+max_length = 100
+embedding_dim = 64
+
+(x_train, y_train), (x_test, y_test) = imdb.load_data(num_words=5000)
+
+x_train = pad_sequences(x_train, maxlen=max_length, padding='post')
+x_test = pad_sequences(x_test, maxlen=max_length, padding='post')
+
+model = Sequential([
+    Embedding(input_dim=5000, output_dim=embedding_dim, input_length=max_length),
+    LSTM(64),
+    Dense(1, activation='sigmoid')
+])
+
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+history = model.fit(
+    x_train, y_train,
+    epochs=5,
+    batch_size=64,
+    validation_data=(x_test, y_test)
+)
+
+loss, accuracy = model.evaluate(x_test, y_test)
+print(f'Test Loss: {loss}, Test Accuracy: {accuracy}')
+#############################################################################################################3
+# 10. Write a program for text generation using LSTM
+
+import numpy as np
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense
+from tensorflow.keras.utils import to_categorical
+
+data = [
+    "the sun rises in the east",
+    "the moon shines at night",
+    "birds sing in the morning"
+]
+
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(data)
+
+vocab_size = len(tokenizer.word_index) + 1
+
+sequences = []
+
+for line in data:
+    tokens = tokenizer.texts_to_sequences([line])[0]
+
+    for i in range(1, len(tokens)):
+        sequences.append(tokens[:i+1])
+
+max_len = max(len(seq) for seq in sequences)
+
+sequences = pad_sequences(sequences, maxlen=max_len, padding='pre')
+
+X = sequences[:, :-1]
+y = sequences[:, -1]
+
+y = to_categorical(y, num_classes=vocab_size)
+
+model = Sequential([
+    Embedding(vocab_size, 10, input_length=max_len-1),
+    LSTM(50),
+    Dense(vocab_size, activation='softmax')
+])
+
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+model.fit(X, y, epochs=100, verbose=0)
+
+text = "the sun"
+
+for _ in range(3):
+
+    seq = tokenizer.texts_to_sequences([text])[0]
+    seq = pad_sequences([seq], maxlen=max_len-1, padding='pre')
+
+    pred = np.argmax(model.predict(seq, verbose=0))
+
+    for word, index in tokenizer.word_index.items():
+        if index == pred:
+            text += " " + word
+
+print(text)
+###################################################################################################
+exp:11
+
+import numpy as np, matplotlib.pyplot as plt
+from tensorflow.keras import layers, Model
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+
+def load_data(img_path, mask_path, size=(128,128)):
+    img = img_to_array(load_img(img_path, target_size=size))/255.
+    mask = np.round(img_to_array(
+        load_img(mask_path, target_size=size, color_mode='grayscale'))/255.)
+    return img, mask
+
+def conv_block(x, f):
+    x = layers.Conv2D(f, 3, activation='relu', padding='same')(x)
+    x = layers.Conv2D(f, 3, activation='relu', padding='same')(x)
+    return x
+
+def unet(input_size=(128,128,3)):
+    inp = layers.Input(input_size)
+
+    c1 = conv_block(inp, 32)
+    p1 = layers.MaxPooling2D()(c1)
+
+    c2 = conv_block(p1, 64)
+    p2 = layers.MaxPooling2D()(c2)
+
+    c3 = conv_block(p2, 128)
+    p3 = layers.MaxPooling2D()(c3)
+
+    c4 = conv_block(p3, 256)
+
+    u5 = layers.Conv2DTranspose(128, 2, strides=2, padding='same')(c4)
+    c5 = conv_block(layers.concatenate([u5, c3]), 128)
+
+    u6 = layers.Conv2DTranspose(64, 2, strides=2, padding='same')(c5)
+    c6 = conv_block(layers.concatenate([u6, c2]), 64)
+
+    u7 = layers.Conv2DTranspose(32, 2, strides=2, padding='same')(c6)
+    c7 = conv_block(layers.concatenate([u7, c1]), 32)
+
+    out = layers.Conv2D(1, 1, activation='sigmoid')(c7)
+
+    return Model(inp, out)
+
+img, mask = load_data('/content/image.jpg',
+                      '/content/masked.png')
+
+X, y = img[None], mask[None]
+
+model = unet()
+model.compile(
+    optimizer='adam',
+    loss='binary_crossentropy',
+    metrics=['accuracy']
+)
+model.fit(X, y, epochs=100, batch_size=1)
+
+pred = model.predict(X)
+
+for i, (im, t) in enumerate(zip(
+    [img, mask.squeeze(), pred.squeeze()],
+    ["Image", "Mask", "Prediction"]
+)):
+    plt.subplot(1,3,i+1)
+    plt.title(t)
+    plt.imshow(im, cmap='gray' if i else None)
+
+plt.show()
+#####################################################################################################33
+# 12. Develop a python code to implement autoencoder. visualize the generated images
+
+import numpy as np
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D
+import matplotlib.pyplot as plt
+
+(x_train, _), (x_test, _) = mnist.load_data()
+x_train, x_test = x_train.astype('float32') / 255.0, x_test.astype('float32') / 255.
+x_train = np.reshape(x_train, (-1, 28, 28, 1))
+x_test = np.reshape(x_test, (-1, 28, 28, 1))
+
+noise_factor = 0.5
+x_train_noisy = x_train + noise_factor * np.random.normal(size=x_train.shape)
+x_test_noisy = x_test + noise_factor * np.random.normal(size=x_test.shape)
+x_train_noisy = np.clip(x_train_noisy, 0., 1.)
+x_test_noisy = np.clip(x_test_noisy, 0., 1.)
+
+input_image = Input(shape=(28,28,1))
+
+x = Conv2D(32, (3,3), activation='relu', padding='same')(input_image)
+x = MaxPooling2D((2,2), padding='same')(x)
+x = Conv2D(32, (3,3), activation='relu', padding='same')(x)
+encoded = MaxPooling2D((2,2), padding='same')(x)
+
+x = Conv2D(64, (3,3), activation='relu', padding='same')(encoded)
+x = UpSampling2D((2,2))(x)
+x = Conv2D(32, (3,3), activation='relu', padding='same')(x)
+x = UpSampling2D((2,2))(x)
+decoded = Conv2D(1, (3,3), activation='sigmoid', padding='same')(x)
+
+autoencoder = Model(input_image, decoded)
+autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+
+autoencoder.fit(x_train_noisy, x_train, epochs=10, batch_size=128, validation_data=(x_test_noisy, x_test))
+
+decoded_images = autoencoder.predict(x_test_noisy)
+
+n = 6
+plt.figure(figsize=(18,6))
+for i in range(n):
+  ax = plt.subplot(3, n, i+1)
+  plt.imshow(x_test[i].reshape(28,28), cmap='gray')
+  plt.title('Original')
+  plt.axis('off')
+
+  ax = plt.subplot(3, n, i+1+n)
+  plt.imshow(x_test_noisy[i].reshape(28,28), cmap='gray')
+  plt.title('Noisy')
+  plt.axis('off')
+
+  ax = plt.subplot(3, n, i+1+2*n)
+  plt.imshow(decoded_images[i].reshape(28,28), cmap='gray')
+  plt.title('Reconstructed')
+  plt.axis('off')
+
+plt.show()
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
